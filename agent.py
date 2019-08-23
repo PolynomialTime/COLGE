@@ -59,6 +59,7 @@ class DQAgent:
         self.criterion = torch.nn.MSELoss(reduction='sum')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
+        # number of iterations in S2V
         self.T = 5
 
         self.t = 1
@@ -97,7 +98,6 @@ class DQAgent:
 
 
     def act(self, observation):
-
 
         if self.epsilon_ > np.random.rand():
             return np.random.choice(np.where(observation.numpy()[0,:,0] == 0)[0])
