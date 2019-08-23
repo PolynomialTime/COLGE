@@ -56,26 +56,6 @@ class DQAgent:
             args_init = load_model_config()[self.model_name]
             self.model = models.S2V_QN_1(**args_init)
 
-        elif self.model_name == 'S2V_QN_2':
-            args_init = load_model_config()[self.model_name]
-            self.model = models.S2V_QN_2(**args_init)
-
-
-        elif self.model_name== 'GCN_QN_1':
-
-            args_init = load_model_config()[self.model_name]
-            self.model = models.GCN_QN_1(**args_init)
-
-        elif self.model_name == 'LINE_QN':
-
-            args_init = load_model_config()[self.model_name]
-            self.model = models.LINE_QN(**args_init)
-
-        elif self.model_name == 'W2V_QN':
-
-            args_init = load_model_config()[self.model_name]
-            self.model = models.W2V_QN(G=self.graphs[self.games], **args_init)
-
         self.criterion = torch.nn.MSELoss(reduction='sum')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 

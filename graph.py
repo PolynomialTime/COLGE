@@ -16,6 +16,8 @@ class Graph:
             self.g = nx.barabasi_albert_graph(n=cur_n, m=m, seed=seed)
         elif graph_type =='gnp_random_graph':
             self.g = nx.gnp_random_graph(n=cur_n, p=p, seed=seed)
+        elif graph_type =='cycle_graph':
+            self.g = nx.cycle_graph(n=cur_n)
 
         # power=0.75
         #
@@ -48,3 +50,40 @@ class Graph:
     def adj(self):
 
         return nx.adjacency_matrix(self.g)
+
+    def bonding_capital(self, root, alpha=0.85):
+        avg = 0
+        personalization = {i: 0 for i in self.g.nodes()}
+        personalization[root] = 1
+        pr = np.array(list(nx.pagerank(self.g, alpha, max_iter=200, personalization=personalization).values()))
+        neighbors_nodes = [n for n in self.g.neighbors(root)]
+        for i in range(0, len(neighbors_nodes)):
+            avg += pr[(list(self.g.nodes()).index(neighbors_nodes[i]))]
+        return avg
+    
+    def bridging_capital(self):
+        return nx.betweenness_centrality(self.g)
+    
+    def two_hop_neighbors(self, node):
+        ego = []
+        ego_2 = []
+
+        for n in nx.all_neighbors(self.g, node):
+            ego.append(n)
+        print (ego)
+        for n in nx.generators.ego.ego_graph(self.g, node, 2):
+            ego_2.append(n)
+        print (ego_2)
+        if (len(set(ego))>=len(set(ego_2))):
+            two_hop_neigh = list(set(ego).difference(set(ego_2)))
+        else:
+            two_hop_neigh = list(set(ego_2).difference(set(ego)))
+        print (two_hop_neigh)
+        return two_hop_neigh
+    
+    def add_edge(self, node_x, node_y):
+    
+        return self.g.add_edge(node_x,node_y)
+    
+    def two_level_ego_network(self, node):
+        return nx.generators.ego.ego_graph(self.g, node, 2)
