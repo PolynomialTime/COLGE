@@ -26,9 +26,10 @@ class Environment:
         self.edge_add_old = 0
         self.pre_capital = []
         self.post_capital = []
+
         # rewards of last step
         bridging_capital = self.graph.bridging_capital()
-        for i in self.nodes:
+        for i in range(0, self.nodes):
             self.pre_capital[i] = self.preferences[i] * self.graph.bonding_capital(i) + (1 - self.preferences[i]) * bridging_capital[i]
             self.post_capital[i] = 0.0
 
@@ -37,13 +38,17 @@ class Environment:
                  of the environment, if applicable.
         """
         observations = []
-        for i in self.graph.nodes:
+
+        for i in range(0, self.nodes):
             ego = i # agent id 
             ego_network = self.graph.two_level_ego_network(i)
-            ego_network_adj = nx.adjacency_matrix(ego_network).todense() # store in matrix
+            adj = nx.adjacency_matrix(ego_network).todense() # store in matrix
+            adj = torch.from_numpy(np.expand_dims(self.adj.astype(int), axis=0))
+            adj = adj.type(torch.FloatTensor)
             ego_network_nodes = ego_network.nodes()
+
             # observartions
-            observations.append((ego, ego_network_adj, ego_network_nodes))
+            observations.append((ego, adj, ego_network_nodes))
 
         return observations
 
@@ -53,24 +58,29 @@ class Environment:
         """
         # update graph
         self.update(actions)
+
         # compute rewards
         rewards = self.get_rewards()
+
         # update capital information
         self.pre_capital = self.post_capital
+
         return rewards
 
     def get_rewards(self):
         # socail capital of all agents after acting
         rewards = []
         bridging_capital = self.graph.bridging_capital()
-        for i in self.graph.nodes:
+
+        for i in range(0, self.nodes):
             self.post_capital[i] = self.preferences[i] * self.graph.bonding_capital(i) + (1 - self.preferences[i]) * bridging_capital[i]
             r = self.post_capital[i] - self.pre_capital[i]
             rewards.append(r) 
+        
         return rewards
 
     def update(self, actions):
         """Update the graph and correspodning information after all agents propose an action
         """
-        for i in self.nodes:
+        for i in range(0, self.nodes):
             self.graph.add_edge(i, actions[i])

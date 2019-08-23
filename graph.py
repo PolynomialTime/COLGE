@@ -41,7 +41,7 @@ class Graph:
 
     def neighbors(self, node):
 
-        return nx.all_neighbors(self.g,node)
+        return nx.all_neighbors(self.g, node)
 
     def average_neighbor_degree(self, node):
 
@@ -62,28 +62,17 @@ class Graph:
         return avg
     
     def bridging_capital(self):
+
         return nx.betweenness_centrality(self.g)
     
     def two_hop_neighbors(self, node):
-        ego = []
-        ego_2 = []
 
-        for n in nx.all_neighbors(self.g, node):
-            ego.append(n)
-        print (ego)
-        for n in nx.generators.ego.ego_graph(self.g, node, 2):
-            ego_2.append(n)
-        print (ego_2)
-        if (len(set(ego))>=len(set(ego_2))):
-            two_hop_neigh = list(set(ego).difference(set(ego_2)))
-        else:
-            two_hop_neigh = list(set(ego_2).difference(set(ego)))
-        print (two_hop_neigh)
-        return two_hop_neigh
+        return nx.generators.ego.ego_graph(self.g, node, 2)           
     
     def add_edge(self, node_x, node_y):
     
         return self.g.add_edge(node_x,node_y)
     
     def two_level_ego_network(self, node):
+
         return nx.generators.ego.ego_graph(self.g, node, 2)

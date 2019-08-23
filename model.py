@@ -18,7 +18,7 @@ class S2V_QN_1(torch.nn.Module):
         #self.mu_1 = torch.nn.Linear(1, embed_dim)
         #torch.nn.init.normal_(self.mu_1.weight,mean=0,std=0.01)
 
-        self.mu_1 = torch.nn.Parameter(torch.Tensor(1, embed_dim)) # theta_1
+        self.mu_1 = torch.nn.Parameter(torch.Tensor(2, embed_dim)) # theta_1
         torch.nn.init.normal_(self.mu_1, mean=0, std=0.01)
         self.mu_2 = torch.nn.Linear(embed_dim, embed_dim,True) # theta_2
         torch.nn.init.normal_(self.mu_2.weight, mean=0, std=0.01)
