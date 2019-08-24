@@ -67,5 +67,20 @@ class Agent:
         # get action set from observation
 
         # epsilon greedy
+        adj_matrix = observation[0]
+        nodes_order = observation[1]
+        # exploration and exploitation
         if self.epsilon_ > np.random.rand():
-            
+            index = np.random.choice( np.where( adj_matrix.numpy()[0,:,0] == 0)[0] )
+            return nodes_order[index]
+        else:
+            info = observation[2]
+            q_a = self.model(info, adj_matrix)
+            q_a=q_a.detach().numpy()
+            index = np.where((q_a[0, :, 0] == np.max(q_a[0, :, 0][adj_matrix.numpy()[0,:,0] == 0])))[0][0]
+            return nodes_order[index]
+
+    def reward(self, observation, action, reward):
+        """Calculate loss and perform SGD using experience replay
+        """
+        

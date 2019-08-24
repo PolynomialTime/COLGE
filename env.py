@@ -40,15 +40,38 @@ class Environment:
         observations = []
 
         for i in range(0, self.nodes):
-            ego = i # agent id 
+            # agent id 
+            ego = i
             ego_network = self.graph.two_level_ego_network(i)
-            adj = nx.adjacency_matrix(ego_network).todense() # store in matrix
-            adj = torch.from_numpy(np.expand_dims(self.adj.astype(int), axis=0))
+            # set the first entry of adj matrix as 'ego', to fast locate the ego of the observation
+            nodes_order = list(ego_network.nodes())
+            nodes_order.remove(ego)
+            nodes_order.insert(0, ego)
+            adj = nx.adjacency_matrix(ego_network, nodes_order)
+            # store adj matrix in dense matrix
+            adj = adj.todense()
+            # generate distance information
+            dist = []
+            for j in range(0, len(nodes_order)):
+                if adj[0][j] == 0:
+                    dist.append(2)
+                else:
+                    dist.append(1)
+            dist[0] = 0
+            # generate preference information
+            pref = []
+            for j in nodes_order:
+                pref.append(self.preferences[j])
+            # convert adj matrix to a 1xNxN tensor
+            adj = torch.from_numpy(np.expand_dims(adj.astype(int), axis=0))
             adj = adj.type(torch.FloatTensor)
-            ego_network_nodes = ego_network.nodes()
-
-            # observartions
-            observations.append((ego, adj, ego_network_nodes))
+            # assemble info matrix. column 1: preferences; column 2: distances
+            info = torch.zeros(1, self.nodes, 2, dtype=torch.float)
+            for j in range(0, len(nodes_order)):
+                info[0,j,0] = pref[j]
+                info[0,j,1] = dist[j]
+            # assemble final observartions for all agents
+            observations.append((adj, nodes_order, info))
 
         return observations
 
