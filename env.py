@@ -33,6 +33,11 @@ class Environment:
             self.pre_capital[i] = self.preferences[i] * self.graph.bonding_capital(i) + (1 - self.preferences[i]) * bridging_capital[i]
             self.post_capital[i] = 0.0
 
+    """
+    Obsrvation format: ( 0: adjacency matrix, 1: ordered nodes, 2: (preferecens, distances) )
+
+    """
+
     def observe(self):
         """Returns the current observations that the agents can make
                  of the environment, if applicable.

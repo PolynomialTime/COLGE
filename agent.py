@@ -149,6 +149,7 @@ class DQAgent:
         minibatch = random.sample(self.memory_n, self.minibatch_length - 1)
         minibatch.append(self.memory_n[-1])
         last_observation_tens = minibatch[0][0]
+        #print('last observation length', len(last_observation_tens))
         action_tens = torch.Tensor([minibatch[0][1]]).type(torch.LongTensor)
         reward_tens = torch.Tensor([[minibatch[0][2]]])
         observation_tens = minibatch[0][3]

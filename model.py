@@ -7,7 +7,7 @@ import numpy as np
 
 
 class S2V_QN_1(torch.nn.Module):
-    def __init__(self, reg_hidden, embed_dim, len_pre_pooling, len_post_pooling, T):
+    def __init__(self, reg_hidden, embed_dim, len_pre_pooling, len_post_pooling, T=4):
 
         super(S2V_QN_1, self).__init__()
         self.T = T
