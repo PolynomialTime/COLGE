@@ -21,7 +21,6 @@ ego_network_nodes = ego_network.nodes()
 #print( torch.zeros(1, 5 , 1, dtype=torch.float) )
 
 
-a = [(1,2,3), (4,5,6), (7,8,9)]
-minibatch = random.sample(a, 2)
-for i, j, k in minibatch[0:]:
-    print(i, j, k)
+info = torch.zeros(1, 5, 2, dtype=torch.float)
+info[0,0,0] = 1
+print(info)

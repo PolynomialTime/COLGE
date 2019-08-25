@@ -9,7 +9,7 @@ in which the agents are run.
 
 
 class Environment:
-    def __init__(self, graph,name):
+    def __init__(self, graph, name):
         self.graphs = graph
         self.name= name
 

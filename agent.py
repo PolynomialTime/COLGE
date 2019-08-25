@@ -111,8 +111,11 @@ class DQAgent:
         if len(self.memory_n) > self.minibatch_length + self.n_step: #or self.games > 2:
 
             (last_observation_tens, action_tens, reward_tens, observation_tens, done_tens,adj_tens) = self.get_sample()
-            target = reward_tens + self.gamma *(1-done_tens)*torch.max(self.model(observation_tens, adj_tens) + observation_tens * (-1e5), dim=1)[0]
+            target = reward_tens + self.gamma * (1-done_tens) * torch.max(self.model(observation_tens, adj_tens) + observation_tens * (-1e5), dim=1)[0]
+            #print('reward_tens', reward_tens)
+            #print('max', self.model(observation_tens, adj_tens) + observation_tens * (-1e5))
             target_f = self.model(last_observation_tens, adj_tens)
+            print(target_f)
             target_p = target_f.clone()
             target_f[range(self.minibatch_length),action_tens,:] = target
             loss=self.criterion(target_p, target_f)
