@@ -5,7 +5,6 @@ import random
 import networkx as nx
 import numpy as np
 
-
 class S2V_QN_1(torch.nn.Module):
     def __init__(self, reg_hidden, embed_dim, len_pre_pooling, len_post_pooling, T=4):
 
@@ -56,24 +55,12 @@ class S2V_QN_1(torch.nn.Module):
 
         for t in range(self.T):
             if t == 0:
-                #mu = self.mu_1(xv).clamp(0)
                 mu = torch.matmul(xv, self.mu_1).clamp(0) # nbr x dim
-                #print(xv)
-                #print(mu)
-                #mu.transpose_(1,2)
-                #mu_2 = self.mu_2(torch.matmul(adj, mu_init))
-                #mu = torch.add(mu_1, mu_2).clamp(0)
-
             else:
                 #mu_1 = self.mu_1(xv).clamp(0)
                 mu_1 = torch.matmul(xv, self.mu_1).clamp(0) # nbr x dim
-                #mu_1.transpose_(1,2)
-                # before pooling:
                 for i in range(self.len_pre_pooling):
                     mu = self.list_pre_pooling[i](mu).clamp(0) # nbr x dim
-                #print(xv)
-                #print(adj)
-                #print(mu)
                 mu_pool = torch.matmul(adj, mu) # nbr x dim
 
                 # after pooling
@@ -85,6 +72,7 @@ class S2V_QN_1(torch.nn.Module):
 
         q_1 = self.q_1(torch.matmul(xv.transpose(1,2),mu)).expand(minibatch_size,nbr_node,self.embed_dim)
         q_2 = self.q_2(mu)
+        #print(q_2)
         q_ = torch.cat((q_1, q_2), dim=-1) # concatenate by column
         if self.reg_hidden > 0:
             q_reg = self.q_reg(q_).clamp(0)

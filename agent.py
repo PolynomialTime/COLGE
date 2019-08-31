@@ -24,7 +24,9 @@ environment.
 
 class Agent:
 
-    def __init__(self, id, preference, model, lr, bs, termination_step):
+    def __init__(self, id, preference, model_name, lr, bs, termination_step):
+        #self.device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        self.device = torch.device('cpu')
         # agent identification
         self.id = id
         self.preference = preference
@@ -40,11 +42,10 @@ class Agent:
         self.memory = []
 
         # set embdeding model
-        self.model_name = model
         self.minibatch_length = bs
-        if self.model_name == 'S2V_QN_1':
+        if model_name == 'S2V_QN_1':
             #args_init = load_model_config()[self.model_name]
-            self.model = M.S2V_QN_1(32, 32, 0, 0)
+            self.model = M.S2V_QN_1(32, 32, 0, 0).to(self.device)
 
         self.criterion = torch.nn.MSELoss(reduction='sum')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
@@ -52,6 +53,7 @@ class Agent:
         # configurations for S2V
         self.embed_dim = 32
         self.T = 4
+        
 
     def reset(self):
         # shrink experience dataset
@@ -100,14 +102,14 @@ class Agent:
                 info = observation_list[i][2]
                 step = observation_list[i][3]
 
-                reward_ = torch.Tensor([[reward_list[i]]])
+                reward_ = torch.Tensor([[reward_list[i]]]).to(self.device)
                 #action_ = torch.Tensor([action_list[i]]).type(torch.LongTensor)
                 action_ = action_list[i]
 
                 if step == self.termination_step - 1:
-                    max_q = torch.zeros(1, 1, 1, dtype=torch.float)
+                    max_q = torch.zeros(1, 1, 1, dtype=torch.float).to(self.device)
                 else:
-                    max_q = torch.max(self.model(info, adj), dim=1)[0]
+                    max_q = torch.max(self.model(info, adj), dim=1)[0].to(self.device)
 
                 target = reward_ + self.gamma * max_q
 
@@ -115,11 +117,11 @@ class Agent:
                 adj = last_observation_list[i][0]
                 nodes_order = last_observation_list[i][1]
                 info = last_observation_list[i][2]
-                target_f = self.model(info, adj)
+                target_f = self.model(info, adj).to(self.device)
                 #print(target_f)
 
                 # generate target_p
-                target_p = target_f.clone()
+                target_p = target_f.clone().to(self.device)
 
                 # calculate loss tensor
                 index = nodes_order.index(action_)

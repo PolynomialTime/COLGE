@@ -6,7 +6,7 @@ import runner
 import networkx as nx
 import copy
 import multiprocessing
-import community
+#import community
 from networkx.algorithms.community import greedy_modularity_communities
 
 multiprocessing.set_start_method('spawn', True)
@@ -18,6 +18,7 @@ in which the agents are run.
 
 class Environment:
     def __init__(self, graph_init:graph.Graph, env_class):
+        self.device = torch.device('cpu')
         self.graph_init = graph_init
         self.preferences = []
         if env_class == 'community':
@@ -91,6 +92,7 @@ class Environment:
         # convert adj matrix to a 1xNxN tensor
         adj = torch.from_numpy(np.expand_dims(adj.astype(int), axis=0))
         adj = adj.type(torch.FloatTensor)
+        adj.to(self.device)
         # assemble info matrix. column 1: preferences; column 2: distances
         '''
         info = torch.zeros(1, self.nodes_nbr, 2, dtype=torch.float)
@@ -98,7 +100,7 @@ class Environment:
             info[0,j,0] = pref[j]
             info[0,j,1] = dist[j]
         '''
-        info = torch.zeros(1, len(nodes_order), 1, dtype=torch.float)
+        info = torch.zeros(1, len(nodes_order), 1, dtype=torch.float).to(self.device)
         for j in range(len(nodes_order)):
             info[0,j,0] = dist[j]
         # assemble final observartions for all agents
@@ -159,4 +161,4 @@ class Environment:
         return a
 
     def small_world_info(self):
-        return (nx.average_shortest_path_length(self.graph), nx.average_clustering(self.graph))
+        return (nx.average_shortest_path_length(self.graph.g), nx.average_clustering(self.graph.g))
