@@ -3,12 +3,11 @@ import random
 import time
 import os
 import logging
-import models
-from utils.config import load_model_config
+import copy
+import model as M
 
 import torch.nn.functional as F
 import torch
-
 
 
 # Set up logger
@@ -23,186 +22,238 @@ environment.
 """
 
 
+class Agent:
 
+    def __init__(self, id, preference, model, lr, bs, termination_step):
+        # agent identification
+        self.id = id
+        self.preference = preference
+        self.termination_step = termination_step
 
-class DQAgent:
-
-
-    def __init__(self,graph,model,lr,bs,n_step):
-
-        self.graphs = graph
-        self.embed_dim = 64
-        self.model_name = model
-
-        self.k = 20
-        self.alpha = 0.1
+        # parameters for reinforcement learning
         self.gamma = 0.99
-        self.lambd = 0.
-        self.n_step=n_step
+        self.epsilon_ = 1
+        self.epsilon_min = 0.02
+        self.discount_factor = 0.999990
 
-        self.epsilon_=1
-        self.epsilon_min=0.02
-        self.discount_factor =0.999990
-        #self.eps_end=0.02
-        #self.eps_start=1
-        #self.eps_step=20000
-        self.t=1
+        # experience replay buffer
         self.memory = []
-        self.memory_n=[]
+
+        # set embdeding model
+        self.model_name = model
         self.minibatch_length = bs
-
         if self.model_name == 'S2V_QN_1':
-
-            args_init = load_model_config()[self.model_name]
-            self.model = models.S2V_QN_1(**args_init)
+            #args_init = load_model_config()[self.model_name]
+            self.model = M.S2V_QN_1(32, 32, 0, 0)
 
         self.criterion = torch.nn.MSELoss(reduction='sum')
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
 
-        # number of iterations in S2V
-        self.T = 5
+        # configurations for S2V
+        self.embed_dim = 32
+        self.T = 4
 
-        self.t = 1
+    def reset(self):
+        # shrink experience dataset
+        if (len(self.memory) != 0) and (len(self.memory) % 300000 == 0):
+            self.memory = random.sample(self.memory, 120000)
+        # learning iterations
+        self.t = 0
 
-
-
-
-    """
-    p : embedding dimension
-       
-    """
-
-    def reset(self, g):
-
-
-        self.games = g
-
-        if (len(self.memory_n) != 0) and (len(self.memory_n) % 300000 == 0):
-            self.memory_n =random.sample(self.memory_n,120000)
-
-
-
-        self.nodes = self.graphs[self.games].nodes()
-        self.adj = self.graphs[self.games].adj()
-        self.adj = self.adj.todense()
-        self.adj = torch.from_numpy(np.expand_dims(self.adj.astype(int), axis=0))
-        self.adj = self.adj.type(torch.FloatTensor)
-
+        # initialize internal info
+        self.last_observation = 0
         self.last_action = 0
-        self.last_observation = torch.zeros(1, self.nodes, 1, dtype=torch.float)
-        self.last_reward = -0.01
-        self.last_done=0
-        self.iter=1
-
-
-
+        self.last_reward = 0
 
     def act(self, observation):
-
+        """Choose an action (node) from 2-hop neighbours 
+        """
+        # epsilon greedy
+        adj_matrix = observation[0]
+        nodes_order = observation[1]
+        # exploration and exploitation
         if self.epsilon_ > np.random.rand():
-            return np.random.choice(np.where(observation.numpy()[0,:,0] == 0)[0])
+            try:
+                index = np.random.choice(np.where(adj_matrix.numpy()[0, :, 0] == 0)[0])
+            except:
+                index = 0
+            return nodes_order[index]
         else:
-            q_a = self.model(observation, self.adj)
-            q_a=q_a.detach().numpy()
-            return np.where((q_a[0, :, 0] == np.max(q_a[0, :, 0][observation.numpy()[0, :, 0] == 0])))[0][0]
+            info = observation[2]
+            q_a = self.model(info, adj_matrix)
+            q_a = q_a.detach().numpy()
+            index = np.where((q_a[0, :, 0] == np.max(
+                q_a[0, :, 0][adj_matrix.numpy()[0, :, 0] == 0])))[0][0]
+            return nodes_order[index]
 
-    def reward(self, observation, action, reward,done):
+    def reward(self, observation, action, reward):
+        """Calculate loss and perform SGD using experience replay
+        """
+        if len(self.memory) > self.minibatch_length:
+            # random sample
+            (last_observation_list, action_list, reward_list,
+             observation_list) = self.get_sample()
 
-        if len(self.memory_n) > self.minibatch_length + self.n_step: #or self.games > 2:
+            for i in range(self.minibatch_length):
+             # generate target tensor
+                adj = observation_list[i][0]
+                info = observation_list[i][2]
+                step = observation_list[i][3]
 
-            (last_observation_tens, action_tens, reward_tens, observation_tens, done_tens,adj_tens) = self.get_sample()
-            target = reward_tens + self.gamma * (1-done_tens) * torch.max(self.model(observation_tens, adj_tens) + observation_tens * (-1e5), dim=1)[0]
-            #print('reward_tens', reward_tens)
-            #print('max', self.model(observation_tens, adj_tens) + observation_tens * (-1e5))
-            target_f = self.model(last_observation_tens, adj_tens)
-            print(target_f)
-            target_p = target_f.clone()
-            target_f[range(self.minibatch_length),action_tens,:] = target
-            loss=self.criterion(target_p, target_f)
+                reward_ = torch.Tensor([[reward_list[i]]])
+                #action_ = torch.Tensor([action_list[i]]).type(torch.LongTensor)
+                action_ = action_list[i]
 
+                if step == self.termination_step - 1:
+                    max_q = torch.zeros(1, 1, 1, dtype=torch.float)
+                else:
+                    max_q = torch.max(self.model(info, adj), dim=1)[0]
 
-            self.optimizer.zero_grad()
-            loss.backward()
-            self.optimizer.step()
-            #print(self.t, loss)
+                target = reward_ + self.gamma * max_q
 
-            #self.epsilon = self.eps_end + max(0., (self.eps_start- self.eps_end) * (self.eps_step - self.t) / self.eps_step)
+                # genrate target_f
+                adj = last_observation_list[i][0]
+                nodes_order = last_observation_list[i][1]
+                info = last_observation_list[i][2]
+                target_f = self.model(info, adj)
+                #print(target_f)
+
+                # generate target_p
+                target_p = target_f.clone()
+
+                # calculate loss tensor
+                index = nodes_order.index(action_)
+                target_f[0, index, :] = target
+                loss = self.criterion(target_p, target_f)
+
+                # perform SGD
+                self.optimizer.zero_grad()
+                loss.backward()
+                self.optimizer.step()
+
+            # adjust epsilon greedy
             if self.epsilon_ > self.epsilon_min:
-               self.epsilon_ *= self.discount_factor
-        if self.iter>1:
-            self.remember(self.last_observation, self.last_action, self.last_reward, observation.clone(),self.last_done*1)
+                self.epsilon_ *= self.discount_factor
 
-        if done & self.iter> self.n_step:
-              self.remember_n(False)
-              new_observation = observation.clone()
-              new_observation[:,action,:]=1
-              self.remember(observation,action,reward,new_observation,done*1)
+            # remember experience
+        if self.t > 0:
+            self.remember(self.last_observation, self.last_action, self.last_reward, copy.deepcopy(observation))
 
-        if self.iter > self.n_step:
-            self.remember_n(done)
-        self.iter+=1
+        # update internal information
         self.t += 1
         self.last_action = action
-        self.last_observation = observation.clone()
+        self.last_observation = copy.deepcopy(observation)
         self.last_reward = reward
-        self.last_done = done
+
+    """
+    Experience format: (observation, action, reward, new observation)
+
+    """
 
     def get_sample(self):
+        """Randomly sample a batch of experiences from experience dataset
+        """
+        # draw a minibatch of experiences
+        minibatch = random.sample(self.memory, self.minibatch_length - 1)
+        minibatch.append(self.memory[-1])
+        # extract information from sampled minibatch
+        last_observation_list = []
+        action_list = []
+        reward_list = []
+        observation_list = []
 
-        minibatch = random.sample(self.memory_n, self.minibatch_length - 1)
-        minibatch.append(self.memory_n[-1])
-        last_observation_tens = minibatch[0][0]
-        #print('last observation length', len(last_observation_tens))
-        action_tens = torch.Tensor([minibatch[0][1]]).type(torch.LongTensor)
-        reward_tens = torch.Tensor([[minibatch[0][2]]])
-        observation_tens = minibatch[0][3]
-        done_tens =torch.Tensor([[minibatch[0][4]]])
-        adj_tens = self.graphs[minibatch[0][5]].adj().todense()
-        adj_tens = torch.from_numpy(np.expand_dims(adj_tens.astype(int), axis=0)).type(torch.FloatTensor)
+        for (last_observation_, action_, reward_, observation_) in minibatch:
+            last_observation_list.append(last_observation_)
+            action_list.append(action_)
+            reward_list.append(reward_)
+            observation_list.append(observation_)
 
+        return (last_observation_list, action_list, reward_list, observation_list)
 
-        for last_observation_, action_, reward_, observation_, done_, games_ in minibatch[-self.minibatch_length + 1:]:
-            last_observation_tens=torch.cat((last_observation_tens,last_observation_))
-            action_tens = torch.cat((action_tens, torch.Tensor([action_]).type(torch.LongTensor)))
-            reward_tens = torch.cat((reward_tens, torch.Tensor([[reward_]])))
-            observation_tens = torch.cat((observation_tens, observation_))
-            done_tens = torch.cat((done_tens,torch.Tensor([[done_]])))
-            adj_ = self.graphs[games_].adj().todense()
-            adj = torch.from_numpy(np.expand_dims(adj_.astype(int), axis=0)).type(torch.FloatTensor)
-            adj_tens = torch.cat((adj_tens, adj))
-
-        return (last_observation_tens, action_tens, reward_tens, observation_tens,done_tens, adj_tens)
-
-
-
-    def remember(self, last_observation, last_action, last_reward, observation,done):
-        self.memory.append((last_observation, last_action, last_reward, observation,done, self.games))
-
-    def remember_n(self,done):
-
-        if not done:
-            step_init = self.memory[-self.n_step]
-            cum_reward=step_init[2]
-            for step in range(1,self.n_step):
-                cum_reward+=self.memory[-step][2]
-            self.memory_n.append((step_init[0], step_init[1], cum_reward, self.memory[-1][-3],self.memory[-1][-2], self.memory[-1][-1]))
-
-        else:
-            for i in range(1,self.n_step):
-                step_init = self.memory[-self.n_step+i]
-                cum_reward=step_init[2]
-                for step in range(1,self.n_step-i):
-                    cum_reward+=self.memory[-step][2]
-                if i==self.n_step-1:
-                    self.memory_n.append(
-                        (step_init[0], step_init[1], cum_reward, self.memory[-1][-3], False, self.memory[-1][-1]))
-
-                else:
-                    self.memory_n.append((step_init[0], step_init[1], cum_reward,self.memory[-1][-3], False, self.memory[-1][-1]))
+    def remember(self, last_observation, last_action, last_reward, observation):
+        """Store an experience to the dataset
+        """
+        self.memory.append(
+            (last_observation, last_action, last_reward, observation))
 
     def save_model(self):
+        """Save the training model
+        """
+        # get current working directory
         cwd = os.getcwd()
-        torch.save(self.model.state_dict(), cwd+'/model.pt')
+        torch.save(self.model.state_dict(), cwd + '/' + str(self.id) + '-model.pt')
 
 
-Agent = DQAgent
+"""Following functions are for parallel computing use
+"""
+
+
+"""
+def reward(agent:Agent, observation, action, reward):
+    # Calculate loss and perform SGD using experience replay
+    
+
+    if len(agent.memory) > agent.minibatch_length:
+        # random sample
+        (last_observation_list, action_tens, reward_tens, observation_list) = agent.get_sample()
+
+        # generate target tensor
+        adj = observation_list[0][0]
+        info = observation_list[0][2]
+        step = observation_list[0][3]
+
+        if step == agent.termination_step - 1:
+            max_q_tens = torch.zeros(1, 1, 1, dtype=torch.float)
+        else:
+            max_q_tens = torch.max(agent.model(info, adj), dim=1)[0]
+
+        for i in range(1, agent.minibatch_length):
+            adj = observation_list[i][0]
+            info = observation_list[i][2]
+            step = observation_list[0][3]
+            if step == agent.termination_step - 1:
+                max_q_tens = torch.cat((max_q_tens, orch.zeros(1, 1, 1, dtype=torch.float)))
+            else:
+                max_q_tens = torch.cat((max_q_tens, torch.max(agent.model(info, adj), dim=1)[0]))
+        print('zzzzz')
+        target = reward_tens + agent.gamma * max_q_tens
+        #if agent.id == 0:
+        #    print(target)
+
+        # genrate target_f
+        adj = last_observation_list[0][0]
+        info = last_observation_list[0][2]
+        target_f = agent.model(info, adj)
+
+        for i in range(1, agent.minibatch_length):
+            adj = last_observation_list[i][0]
+            info = last_observation_list[i][2]
+            target_f = torch.cat((target_f, agent.model(info, adj)))
+
+        # generate target_p
+        target_p = target_f.clone()
+
+        # calculate loss tensor
+        target_f[range(agent.minibatch_length), action_tens, :] = target
+        loss = agent.criterion(target_p, target_f)
+
+        # perform SGD
+        agent.optimizer.zero_grad()
+        loss.backward()
+        agent.optimizer.step()
+
+        # adjust epsilon greedy
+        if agent.epsilon_ > agent.epsilon_min:
+                agent.epsilon_ *= agent.discount_factor
+
+    # remember experience
+    if agent.t > 0:
+        agent.remember(agent.last_observation, agent.last_action, agent.last_reward, copy.deepcopy(observation))
+
+    # update internal information
+    agent.t = agent.t + 1
+    agent.last_action = action
+    agent.last_observation = copy.deepcopy(observation)
+    agent.last_reward = reward
+"""
+

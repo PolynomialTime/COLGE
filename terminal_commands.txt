@@ -1,0 +1,14 @@
+python3 main.py --termination_step 5 --environment_name community
+
+python3 main.py --termination_step 3 --environment_name community
+
+python3 main.py --termination_step 7 --environment_name community
+
+python3 main.py --termination_step 5 --environment_name small_world
+
+python3 main.py --termination_step 3 --environment_name small-world
+
+python3 main.py --termination_step 7 --environment_name small-world
+
+
+

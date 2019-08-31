@@ -6,7 +6,7 @@ import collections
 # seed = np.random.seed(120)
 
 class Graph:
-    def __init__(self, graph_type, cur_n, p, m=None, seed=None):
+    def __init__(self, graph_type, cur_n, p=None, m=None, seed=None):
 
         if graph_type == 'erdos_renyi':
             self.g = nx.erdos_renyi_graph(n=cur_n, p=p, seed=seed)
@@ -31,9 +31,13 @@ class Graph:
         #     self.nodedistdict[node]=float(len(nx.neighbors(self.g,node)))**power/float(len(self.g.edges))
 
 
-    def nodes(self):
+    def nodes_nbr(self):
 
         return nx.number_of_nodes(self.g)
+
+    def nodes(self):
+
+        return self.g.nodes()
 
     def edges(self):
 

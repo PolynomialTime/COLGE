@@ -1,9 +1,9 @@
 S2V_QN_1:
-  reg_hidden: 64
-  embed_dim: 64
+  reg_hidden: 32
+  embed_dim: 32
   len_pre_pooling: 0
   len_post_pooling: 0
-  T: 5
+  T: 4
 
 S2V_QN_2:
   reg_hidden: 0
