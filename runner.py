@@ -23,12 +23,10 @@ class Runner:
         if self.environment_name == 'community':
             if os.path.exists(str(self.termination_step) + "_community_info_.txt"):
                 os.remove(str(self.termination_step) + "_community_info_.txt")
-            self.info_file = open(str(self.termination_step) + "_community_info_.txt", 'a')
         
         if self.environment_name == 'small-world':
             if os.path.exists(str(self.termination_step) + "_sw_info_.txt"):
                 os.remove(str(self.termination_step) + "_sw_info_.txt")
-            self.info_file = open(str(self.termination_step) + "_sw_info_.txt", 'a')
 
 
     def step(self):
@@ -76,13 +74,16 @@ class Runner:
                 #print("        -> actions : ", actions)
                 self.step()
 
-            if episode % 5 == 0:
+            if episode % 10 == 0:
                 if self.environment_name == 'community':
-                    self.info_file.writelines(str(self.env.community_info()))
-                    self.info_file.write('\n')
+                    info_file = open(str(self.termination_step) + "_community_info.txt", 'a')
+                    info_file.writelines(str(self.env.community_info()))
+                    info_file.write('\n')
+                    info_file.close()
                 if self.environment_name == 'small_world':
-                    self.info_file.writelines(str(self.env.small_world_info()))
-                    self.info_file.write('\n')
+                    info_file.writelines(str(self.termination_step) + "_sw_info.txt")
+                    info_file.write('\n')
+                    info_file.close()
 
 
         
