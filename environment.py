@@ -54,15 +54,17 @@ class Environment:
                  of the environment, if applicable.
         """
         observations = []
-        results = []
-        pool = multiprocessing.Pool(processes=6)
-        for i in self.graph.nodes():
-            results.append(pool.apply_async(self.get_observation, (i,)))
-        pool.close() # close pool
-        pool.join() # wait for all jobs in the pool finished
+        #results = []
+        #pool = multiprocessing.Pool(processes=6)
+        #for i in self.graph.nodes():
+        #    results.append(pool.apply_async(self.get_observation, (i,)))
+        #pool.close() # close pool
+        #pool.join() # wait for all jobs in the pool finished
         
-        for res in results:
-            observations.append(res.get())
+        #for res in results:
+        #    observations.append(res.get())
+        for i in self.nodes:
+            observations.append(self.get_observation(i))
         return observations
 
     
